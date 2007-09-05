@@ -1,0 +1,36 @@
+#!/dis/sh.dis
+ifs='
+'
+load std
+
+subfn mquote {
+	(arg rem)=$*
+	result=$arg
+	if{! ~ $arg ''''''} {
+		result=${quote $arg}
+	}
+}
+
+if{! ~ $#* 1} {
+	echo 'usage: mkaudiodb path' >[1=2]
+	raise fail:usage
+}
+
+(dest rem)=$*
+for i in `{du -a $dest | sed -n 's,^[^/]*(/.*\.mp3$),\1,p'} {
+	lines=`{mp3tag $i | sed 's/^$/''''/'}
+	if{~ $status ''} {
+		(title artist album year comment track genre)=$lines
+		echo -n 'title='^${mquote $title}
+		echo -n '	artist='^${mquote $artist}
+		echo -n '	album='^${mquote $album}
+		echo -n '	year='^${mquote $year}
+		echo -n '	comment='^${mquote $comment}
+		echo -n '	track='^${mquote $track}
+		echo -n '	genre='^${mquote $genre}
+		echo -n '	path='^${mquote $i}
+		echo
+	} {
+		echo failed: $i >[1=2]
+	}
+}

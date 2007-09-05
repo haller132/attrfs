@@ -1,0 +1,19 @@
+<../../mkconfig
+
+TARG=\
+	mkaudiodb\
+	attrfs.dis\
+
+SYSMODULES=\
+	arg.m\
+	bufio.m\
+	daytime.m\
+	draw.m\
+	keyring.m\
+	string.m\
+	sys.m\
+	attrdb.m\
+
+DISBIN=$ROOT/dis
+
+<$ROOT/mkfiles/mkdis

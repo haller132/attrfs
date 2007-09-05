@@ -1,0 +1,27 @@
+programs to be described:
+attrfs
+mkaudiodb
+wm/pick
+
+
+todo:
+- attrfs: sorting without case is better
+- attrfs: test if we don't leak memory, e.g. on clunk the fiddata and fidallpick
+
+- pick: don't show paths in result listbox, but descriptions based on fields, read from file "all"
+- pick: allow user to select multiple options from listbox?  needs support from attrfs
+
+testing:
+- attrfs: allow pick-file write commands on clone fid that created the pick
+- attrfs: fix "leaking" of mp3 attributes to other path-elements
+- attrfs: read attributes, indexkeys and mainkey from command-line
+- pick: fix behaviour after having clicked on "show" for listbox
+- pick: fix selecting type, doesn't work now
+- pick: add fixed "show" button
+- pick: fix frame with buttons, it is too high
+- pick: implement executing commands on double-click (has been done on button3, not double click)
+- rename attr to attrfs
+- pick: isolate namespace, for chdir
+- pick: when new listbox gets one entry, simulate a select on that as well
+
+done:
