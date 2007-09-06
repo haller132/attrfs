@@ -2,6 +2,7 @@
 
 TARG=\
 	pick.dis\
+	#audiopick\
 
 SYSMODULES=\
 	arg.m\

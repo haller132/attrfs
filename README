@@ -1,8 +1,17 @@
-programs to be described:
 attrfs
-mkaudiodb
-wm/pick
+	reads an attrdb(6) database into memory and provides a file system interface to finding matches.  the key/value pairs are kept in memory.  attrfs makes an index of the indexkeys specified on the command line, for fast lookups.
+	opening file "clone" makes a new selection.  a directory name (number) can be read from it, and one can walk to the directory.  in that directory there are files with the names of each attribute, reading them results in all (unique and sorted) values present in the database.  file "all" is speciall, it returns all attributes for the database entries, one attribute per line, so multiple lines per entry.  writing attribute names (one per line) sets the attributes to return instead of all of them.  writing "attribute value" to file "pick" or the "clone" file that started the selection narrows down the search result.
 
+mkaudiodb
+	make an attrdb(6) file that can be read by attrfs, the file created is the meta-info database and can grow quite large
+
+mp3tag
+	used by mkaudiodb to get meta-info out of an mp3 file
+
+wm/pick
+	tk front-end to attrfs that allows selecting attribute (meta-info) values to narrow down matching database entries.  the matching entries can be read from a file, by a script, executed when pressing a button.  do not use wm/pick directly, instead use e.g. appl/wm/audiopick (which calls wm/pick with the options to make it look like an audio-selecting tool and to add matches to the playlist)
+
+also see guide.txt for an example on how to start these tools
 
 todo:
 - attrfs: rethink the whole thing, major things:
