@@ -1,8 +1,9 @@
 <../../mkconfig
 
 TARG=\
-	mkaudiodb\
+	#mkaudiodb\
 	attrfs.dis\
+	mp3tag.dis\
 
 SYSMODULES=\
 	arg.m\

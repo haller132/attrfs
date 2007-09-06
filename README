@@ -5,6 +5,11 @@ wm/pick
 
 
 todo:
+- attrfs: rethink the whole thing, major things:
+	* need a new fast and small data store
+	* need more efficient in-memory storage
+	* need to be able to get updates without restarting
+	* determine whether it is possible to do word-lookup, split the values into words and store them as such as well, indexed.
 - attrfs: sorting without case is better
 - attrfs: test if we don't leak memory, e.g. on clunk the fiddata and fidallpick
 
@@ -12,6 +17,7 @@ todo:
 - pick: allow user to select multiple options from listbox?  needs support from attrfs
 
 testing:
+- mkaudiodb/mp3tag: fill in genre, instead of number
 - attrfs: allow pick-file write commands on clone fid that created the pick
 - attrfs: fix "leaking" of mp3 attributes to other path-elements
 - attrfs: read attributes, indexkeys and mainkey from command-line

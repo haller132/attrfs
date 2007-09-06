@@ -55,28 +55,28 @@ Pick: adt {
 	clonefid:	int;
 	picked:	int;
 	ids:	list of int;
-	sel:	list of (string, string);
+	sel:	list of (int, string);
 	fids:	list of int;
 	opens:	int;
 
 	new:	fn(fid: int): ref Pick;
 	clear:	fn(p: self ref Pick);
-	select:	fn(p: self ref Pick, k, v: string);
+	select:	fn(p: self ref Pick, k: int, v: string);
 	selectdata:	fn(p: self ref Pick): array of byte;
-	project:	fn(p: self ref Pick, key: list of string): array of byte;
+	project:	fn(p: self ref Pick, keys: array of int): array of byte;
 };
 lastpickid: int;
 picks := array[0] of ref Pick;
 fiddata: ref Table[array of byte];
-fidallpick: ref Table[list of string];
+fidallpick: ref Table[array of int];
 
 Entry: adt {
 	id:	int;
-	vals:	list of (string, string);
+	vals:	array of string;
 
-	mk:	fn(l: list of (string, string)): ref Entry;
-	get:	fn(e: self ref Entry, key: string): string;
-	set:	fn(e: self ref Entry, key, val: string);
+	mk:	fn(a: array of string): ref Entry;
+	get:	fn(e: self ref Entry, k: int): string;
+	set:	fn(e: self ref Entry, k: int, val: string);
 };
 
 Map: adt {
@@ -96,11 +96,10 @@ Strset: adt {
 	all:	fn(ss: self ref Strset): array of string;
 };
 
-lastentryid: int;
+maxentryid: int;
 entries := array[256] of list of ref Entry;
 maps: array of (string, ref Map);
 attributes: array of string;
-lattributes: list of string;
 attrsdata, indexkeysdata: array of byte;
 
 Attrfs: module {
@@ -138,13 +137,16 @@ init(nil: ref Draw->Context, args: list of string)
 	dbpath := hd args;
 	mainkey := hd tl args;
 	indexkeys := sys->tokenize(hd tl tl args, ",").t1;
-	lattributes = concat(sys->tokenize(hd tl tl tl args, ",").t1, indexkeys);
-	attributes = l2a(lattributes);
+	l := concat(sys->tokenize(hd tl tl tl args, ",").t1, indexkeys);
+	attributes = array[len l] of string;
+	i := 0;
+	for(; l != nil; l = tl l)
+		attributes[i++] = hd l;
 
 	Qlast = Qall+len attributes;
 	maps = array[len indexkeys] of (string, ref Map);
-	i := 0;
-	for(l := indexkeys; l != nil; l = tl l)
+	i = 0;
+	for(l = indexkeys; l != nil; l = tl l)
 		maps[i++] = (hd l, Map.new());
 
 	fiddata = fiddata.new(32, nil);
@@ -163,9 +165,7 @@ init(nil: ref Draw->Context, args: list of string)
 		fail(sprint("open: %r"));
 	start: ref Dbptr;
 	e: ref Dbentry;
-	empty: list of (string, string);
-	for(i = 0; i < len attributes; i++)
-		empty = (attributes[i], "")::empty;
+	empty := array[len attributes] of string;
 	for(;;) {
 		(e, start) = db.find(start, mainkey);
 		if(e == nil)
@@ -173,14 +173,16 @@ init(nil: ref Draw->Context, args: list of string)
 		ent := Entry.mk(empty);
 		for(t := e.lines; t != nil; t = tl t) {
 			for(p := (hd t).pairs; p != nil; p = tl p)
-				ent.set((hd p).attr, (hd p).val);
+				if((k := getkey((hd p).attr)) >= 0)
+					ent.set(k, (hd p).val);
 			if(has((hd t).pairs, mainkey)) {
 				eadd(ent);
 				for(i = 0; i < len maps; i++)
-					maps[i].t1.add((ent.get(maps[i].t0), ent.id));
+					maps[i].t1.add((ent.get(i), ent.id));
 				ent = Entry.mk(ent.vals);
 			}
 		}
+		maxentryid = ent.id;
 	}
 
 	navch := chan of ref Navop;
@@ -218,7 +220,7 @@ dostyx(gm: ref Tmsg)
 			picks = add(picks, array[] of {p = Pick.new(m.fid)});
 		else if((p = findpick(id)) != nil && q == Qpick && (m.mode & Sys->OTRUNC))
 			p.clear();
-		if(p != nil)
+		if((q == Qclone || q >= Qdir) && p != nil)
 			p.opens++;
 		srv.default(m);
 
@@ -241,17 +243,25 @@ dostyx(gm: ref Tmsg)
 				(a, v) := str->splitstrl(hd l, " ");
 				if(v != nil)
 					v = v[1:];
-				p.select(a, v);
+				k := getkey(a);
+				if(k < 0)
+					return replyerror(m, "bad key: "+a);
+				p.select(k, v);
 				clearcache(p);
 			}
 			srv.reply(ref Rmsg.Write(m.tag, len m.data));
 		Qall =>
 			p := findpick(id);
-			l := fidallpick.find(m.fid);
-			for((nil, ll) := sys->tokenize(string m.data, "\n"); ll != nil; ll = tl ll)
-				l = hd ll::l;
+			ks := fidallpick.find(m.fid);
+			(nil, ll) := sys->tokenize(string m.data, "\n");
+			for(; ll != nil; ll = tl ll) {
+				k := getkey(hd ll);
+				if(k < 0)
+					return replyerror(m, "bad key: "+hd ll);
+				ks = addintarray(ks, array[] of {k});
+			}
 			fidallpick.del(m.fid);
-			fidallpick.add(m.fid, l);
+			fidallpick.add(m.fid, ks);
 			p.fids = addint(p.fids, m.fid);
 			srv.reply(ref Rmsg.Write(m.tag, len m.data));
 		* =>
@@ -274,8 +284,10 @@ dostyx(gm: ref Tmsg)
 				if(p != nil)
 					p.fids = delint(p.fids, m.fid);
 			}
-			if(p != nil && --p.opens <= 0)
+			if(f.isopen && p != nil && --p.opens <= 0) {
+				say(sprint("clunk, removing pick %d", p.pickid));
 				delpick(p);
+			}
 		}
 		srv.default(m);
 
@@ -285,7 +297,7 @@ dostyx(gm: ref Tmsg)
 			srv.default(m);
 			return;
 		}
-		say(sprint("read f.path=%bd", f.path));
+		if(dflag) say(sprint("read f.path=%bd", f.path));
 		q := int f.path&16rff;
 		id := int f.path>>8;
 		if(q >= Qdir && findpick(id) == nil)
@@ -316,16 +328,13 @@ navigator(c: chan of ref Navop)
 again:
 	for(;;) {
 		navop := <-c;
-		say("have navop");
+		if(dflag) say(sprint("have navop, tag %d", tagof navop));
 		id := int navop.path>>8;
 		q := int navop.path&16rff;
 		pick op := navop {
 		Stat =>
-			say("navop stat");
 			op.reply <-= (dir(int op.path, 0), nil);
-
 		Walk =>
-			say("navop walk");
 			if(op.name == "..") {
 				if(q > Qdir)
 					op.reply <-= (dir(Qdir|(id<<8), 0), nil);
@@ -363,7 +372,6 @@ again:
 				op.reply <-= (nil, Enotdir);
 			}
 		Readdir =>
-			say("navop readdir");
 			if(int op.path == Qroot) {
 				n := Qkeys+1-Qclone;
 				have := 0;
@@ -420,9 +428,9 @@ Pick.clear(p: self ref Pick)
 	p.sel = nil;
 }
 
-Pick.select(p: self ref Pick, k, v: string)
+Pick.select(p: self ref Pick, k: int, v: string)
 {
-	say(sprint("select, k=%q v=%q", k, v));
+	if(dflag) say(sprint("select, k=%d v=%q", k, v));
 	p.sel = (k, v)::p.sel;
 	if(p.picked) {
 		r: list of int;
@@ -437,9 +445,9 @@ Pick.select(p: self ref Pick, k, v: string)
 				if((hd l).get(k) == v)
 					p.ids = (hd l).id::p.ids;
 	}
-	say(sprint("select, have ids:"));
-	for(ids := p.ids; ids != nil; ids = tl ids)
-		say(sprint("\t%d", hd ids));
+	if(dflag)
+		for(ids := p.ids; ids != nil; ids = tl ids)
+			say(sprint("\t%d", hd ids));
 	p.picked = 1;
 }
 
@@ -447,18 +455,18 @@ Pick.selectdata(p: self ref Pick): array of byte
 {
 	s := "";
 	for(l := p.sel; l != nil; l = tl l)
-		s += " "+(hd l).t0+" "+(hd l).t1+"\n";
+		s += " "+attributes[(hd l).t0]+" "+(hd l).t1+"\n";
 	if(len s > 0)
 		s = s[1:];
 	return array of byte s;
 }
 
-Pick.project(p: self ref Pick, ks: list of string): array of byte
+Pick.project(p: self ref Pick, ks: array of int): array of byte
 {
-	say(sprint("project, len ks=%d", len ks));
+	if(dflag) say(sprint("project, len ks=%d", len ks));
 	if(!p.picked) {
 		p.ids = nil;
-		for(i := 0; i < lastentryid; i++)
+		for(i := 0; i < maxentryid; i++)
 			p.ids = i::p.ids;
 		p.picked = 1;
 	}
@@ -467,10 +475,15 @@ Pick.project(p: self ref Pick, ks: list of string): array of byte
 		slots = 2;
 	ss := Strset.new(slots);
 	for(ids := p.ids; ids != nil; ids = tl ids) {
-		say(sprint("project, id=%d", hd ids));
+		if(dflag) say(sprint("project, id=%d", hd ids));
 		e := eget(hd ids);
-		for(l := ks; l != nil; l = tl l)
-			ss.add(e.get(hd l));
+		if(ks == nil) {
+			for(i := 0; i < len attributes; i++)
+				ss.add(e.get(i));
+		} else {
+			for(i := 0; i < len ks; i++)
+				ss.add(e.get(ks[i]));
+		}
 	}
 	res := ss.all();
 	qsort(res);
@@ -532,13 +545,11 @@ getfiddata(fid: int, path: int): array of byte
 	d := fiddata.find(fid);
 	if(d == nil) {
 		q := path&16rff;
-		ks: list of string;
-		if(q == Qall) {
+		ks: array of int;
+		if(q == Qall)
 			ks = fidallpick.find(fid);
-			if(ks == nil)
-				ks = lattributes;
-		} else
-			ks = attributes[q-Qattr0]::nil;
+		else
+			ks = array[] of {q-Qattr0};
 		id := path>>8;
 		p := findpick(id);
 		d = p.project(ks);
@@ -588,37 +599,40 @@ has(l: list of ref Attr, k: string): int
 	return 0;
 }
 
-Entry.mk(l: list of (string, string)): ref Entry
+Entry.mk(a: array of string): ref Entry
 {
-	return ref Entry(lastentryid++, l);
+	na := array[len a] of string;
+	na[:] = a;
+	return ref Entry(maxentryid++, na);
 }
 
-Entry.get(e: self ref Entry, k: string): string
+Entry.get(e: self ref Entry, k: int): string
 {
-	for(l := e.vals; l != nil; l = tl l)
-		if((hd l).t0 == k)
-			return (hd l).t1;
-	return nil;
+	return e.vals[k];
 }
 
-Entry.set(e: self ref Entry, key, val: string)
+Entry.set(e: self ref Entry, k: int, val: string)
 {
-	r: list of (string, string);
-	for(l := e.vals; l != nil; l = tl l)
-		if((hd l).t0 != key)
-			r = hd l::r;
-	e.vals = (key, val)::r;
+	e.vals[k] = val;
+}
+
+getkey(s: string): int
+{
+	for(i := 0; i < len attributes; i++)
+		if(s == attributes[i])
+			return i;
+	return -1;
 }
 
 eget(id: int): ref Entry
 {
-	say(sprint("eget, id=%d", id));
+	if(dflag) say(sprint("eget, id=%d", id));
 	for(l := entries[id%len entries]; l != nil; l = tl l)
 		if((hd l).id == id) {
-			say("eget, have entry");
+			if(dflag) say("eget, have entry");
 			return hd l;
 		}
-	say("eget, NOT FOUND");
+	if(dflag) say("eget, NOT FOUND");
 	return nil;
 }
 
@@ -630,7 +644,7 @@ eadd(e: ref Entry)
 
 mapfind(attr, value: string): list of int
 {
-	say(sprint("mapfind attr=%q value=%q", attr, value));
+	if(dflag) say(sprint("mapfind attr=%q value=%q", attr, value));
 	for(i := 0; i < len maps; i++)
 		if(maps[i].t0 == attr)
 			return maps[i].t1.find(value);
@@ -644,7 +658,7 @@ Map.new(): ref Map
 
 Map.add(m: self ref Map, v: (string, int))
 {
-	say(sprint("map.add: %q %d", v.t0, v.t1));
+	if(dflag) say(sprint("map.add: %q %d", v.t0, v.t1));
 	i := hash(v.t0, len m.tab);
 	m.tab[i] = v::m.tab[i];
 }
@@ -681,13 +695,12 @@ add[T](a: array of T, aa: array of T): array of T
 	return na;
 }
 
-l2a[T](l: list of T): array of T
+addintarray(a: array of int, aa: array of int): array of int
 {
-	a := array[len l] of T;
-	i := 0;
-	for(; l != nil; l = tl l)
-		a[i++] = hd l;
-	return a;
+	na := array[len a+len aa] of int;
+	na[:] = a;
+	na[len a:] = aa;
+	return na;
 }
 
 _qsort(a: array of string, left, right: int)

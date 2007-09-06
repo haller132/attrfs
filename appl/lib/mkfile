@@ -1,12 +1,14 @@
 <../../mkconfig
 
 TARG=\
+	mp3tags.dis\
 
 MODULES=\
 
 SYSMODULES=\
 	sys.m\
 	bufio.m\
+	mp3tags.m\
 
 DISBIN=$ROOT/dis/lib
 

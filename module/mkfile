@@ -1,13 +1,17 @@
 <../mkconfig
 
+MODS=\
+	mp3tags.m\
+
 MODDIR=$ROOT/module
 
 $MODDIR/%.m:	%.m
         rm -f $MODDIR/$stem.m && cp $stem.m $MODDIR/$stem.m
 
+MODFILES=${MODS:%=$MODDIR/%}
+
 all:QV:
-	
+
+install:V:	$MODFILES
+
 clean:QV:
-	
-install:V:	
-#$MODDIR/pdfread.m
