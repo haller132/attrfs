@@ -1,31 +1,88 @@
-attrfs
-	reads an attrdb(6) database into memory and provides a file system interface to finding matches.  the key/value pairs are kept in memory.  attrfs makes an index of the indexkeys specified on the command line, for fast lookups.
-	opening file "clone" makes a new selection.  a directory name (number) can be read from it, and one can walk to the directory.  in that directory there are files with the names of each attribute, reading them results in all (unique and sorted) values present in the database.  file "all" is speciall, it returns all attributes for the database entries, one attribute per line, so multiple lines per entry.  writing attribute names (one per line) sets the attributes to return instead of all of them.  writing "attribute value" to file "pick" or the "clone" file that started the selection narrows down the search result.
+# status
 
-mkaudiodb
-	make an attrdb(6) file that can be read by attrfs, the file created is the meta-info database and can grow quite large
+unknown.  have not attempted to use this in some time.  it did work
+at some point though.  consider it experimental and needing some
+work at least.
 
-mp3tag
-	used by mkaudiodb to get meta-info out of an mp3 file
 
-wm/pick
-	tk front-end to attrfs that allows selecting attribute (meta-info) values to narrow down matching database entries.  the matching entries can be read from a file, by a script, executed when pressing a button.  do not use wm/pick directly, instead use e.g. appl/wm/audiopick (which calls wm/pick with the options to make it look like an audio-selecting tool and to add matches to the playlist)
+# intro
+
+## attrfs
+
+reads an attrdb(6) database into memory and provides a file system
+interface to finding matches.  the key/value pairs are kept in
+memory.  attrfs makes an index of the indexkeys specified on the
+command line, for fast lookups.
+
+opening file "clone" makes a new selection.  a directory name
+(number) can be read from it, and one can walk to the directory.
+in that directory there are files with the names of each attribute,
+reading them results in all (unique and sorted) values present in
+the database.  file "all" is speciall, it returns all attributes
+for the database entries, one attribute per line, so multiple lines
+per entry.  writing attribute names (one per line) sets the attributes
+to return instead of all of them.  writing "attribute value" to
+file "pick" or the "clone" file that started the selection narrows
+down the search result.
+
+## mkaudiodb
+
+make an attrdb(6) file that can be read by attrfs, the file created
+is the meta-info database and can grow quite large
+
+## mp3tag
+
+used by mkaudiodb to get meta-info out of an mp3 file
+
+## wm/pick
+
+tk front-end to attrfs that allows selecting attribute (meta-info)
+values to narrow down matching database entries.  the matching
+entries can be read from a file, by a script, executed when pressing
+a button.  do not use wm/pick directly, instead use e.g. appl/wm/audiopick
+(which calls wm/pick with the options to make it look like an
+audio-selecting tool and to add matches to the playlist)
 
 also see guide.txt for an example on how to start these tools
 
-todo:
+
+# install
+
+first, ensure a "mkconfig" file is present.  a bind/symlink to the
+mkconfig of your inferno install should do.  now "mk" and "mk
+install" to compile and install the files.
+
+
+# download
+
+see http://www.ueber.net/code/r/attrfs for instructions.
+
+
+# licence & author
+
+this code is in the public domain, written by mechiel lukkien,
+reachable at mechiel@ueber.net or mechiel@xs4all.nl.
+
+
+# todo
+
 - attrfs: rethink the whole thing, major things:
 	* need a new fast and small data store
 	* need more efficient in-memory storage
 	* need to be able to get updates without restarting
-	* determine whether it is possible to do word-lookup, split the values into words and store them as such as well, indexed.
+        * determine whether it is possible to do word-lookup, split
+	  the values into words and store them as such as well,
+	  indexed.
 - attrfs: sorting without case is better
 - attrfs: test if we don't leak memory, e.g. on clunk the fiddata and fidallpick
 
-- pick: don't show paths in result listbox, but descriptions based on fields, read from file "all"
-- pick: allow user to select multiple options from listbox?  needs support from attrfs
+- pick: don't show paths in result listbox, but descriptions based
+  on fields, read from file "all"
+- pick: allow user to select multiple options from listbox?  needs
+  support from attrfs
 
-testing:
+# testing
+
 - mkaudiodb/mp3tag: fill in genre, instead of number
 - attrfs: allow pick-file write commands on clone fid that created the pick
 - attrfs: fix "leaking" of mp3 attributes to other path-elements
@@ -34,9 +91,8 @@ testing:
 - pick: fix selecting type, doesn't work now
 - pick: add fixed "show" button
 - pick: fix frame with buttons, it is too high
-- pick: implement executing commands on double-click (has been done on button3, not double click)
+- pick: implement executing commands on double-click (has been done
+  on button3, not double click)
 - rename attr to attrfs
 - pick: isolate namespace, for chdir
 - pick: when new listbox gets one entry, simulate a select on that as well
-
-done:
