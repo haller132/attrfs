@@ -1,4 +1,5 @@
-Mp3tags: module {
+Mp3tags: module
+{
 	PATH:	con "/dis/lib/mp3tags.dis";
 
 	genre:	fn(id: int): string;
